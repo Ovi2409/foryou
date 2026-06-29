@@ -244,12 +244,40 @@ function formatDate(dateString) {
 }
 
 // ==========================================
-// EmailJS Integration
+// Data Persistence
+// ==========================================
+function saveDataToLocalStorage() {
+    const data = {
+        date: state.date,
+        time: state.time,
+        food: state.food,
+        message: state.message,
+        timestamp: new Date().toISOString()
+    };
+    localStorage.setItem('dateProposalData', JSON.stringify(data));
+    console.log('Data saved to localStorage:', data);
+}
+
+function loadDataFromLocalStorage() {
+    const saved = localStorage.getItem('dateProposalData');
+    if (saved) {
+        const data = JSON.parse(saved);
+        console.log('Loaded data from localStorage:', data);
+        return data;
+    }
+    return null;
+}
+
+// ==========================================
+// EmailJS Integration with Fallback
 // ==========================================
 async function sendEmail() {
     const emailStatus = document.getElementById('emailStatus');
     emailStatus.classList.remove('hidden', 'email-success', 'email-error');
     emailStatus.innerHTML = '<div class="loading-spinner mx-auto"></div><p class="mt-2">Sending your message...</p>';
+    
+    // Save data to localStorage first
+    saveDataToLocalStorage();
     
     const templateParams = {
         to_email: 'mahin08muntasir09@gmail.com',
@@ -259,21 +287,55 @@ async function sendEmail() {
         message: state.message
     };
     
-    try {
-        // Replace with your actual EmailJS service ID and template ID
-        await emailjs.send(
-            'YOUR_EMAILJS_SERVICE_ID',
-            'YOUR_EMAILJS_TEMPLATE_ID',
-            templateParams
-        );
-        
-        emailStatus.classList.add('email-success');
-        emailStatus.innerHTML = '✅ Message sent successfully ❤️';
-    } catch (error) {
-        console.error('EmailJS Error:', error);
-        emailStatus.classList.add('email-error');
-        emailStatus.innerHTML = '❌ Something went wrong. Please try again.';
+    // Check if EmailJS is configured
+    const isEmailJSConfigured = !emailjs.init.toString().includes('YOUR_EMAILJS_PUBLIC_KEY');
+    
+    if (isEmailJSConfigured) {
+        try {
+            await emailjs.send(
+                'YOUR_EMAILJS_SERVICE_ID',
+                'YOUR_EMAILJS_TEMPLATE_ID',
+                templateParams
+            );
+            
+            emailStatus.classList.add('email-success');
+            emailStatus.innerHTML = '✅ Message sent successfully ❤️';
+        } catch (error) {
+            console.error('EmailJS Error:', error);
+            // Fallback to mailto
+            showMailtoFallback(emailStatus, templateParams);
+        }
+    } else {
+        // EmailJS not configured, use mailto fallback
+        showMailtoFallback(emailStatus, templateParams);
     }
+}
+
+function showMailtoFallback(emailStatus, params) {
+    const formattedDate = formatDate(params.date);
+    const subject = encodeURIComponent('🌸 Date Proposal Response 🌸');
+    const body = encodeURIComponent(
+        `📅 Date: ${formattedDate}\n` +
+        `🕒 Time: ${params.time}\n` +
+        `🍽 Food: ${params.food}\n` +
+        `💌 Message: ${params.message || 'No message written 💕'}\n\n` +
+        `Sent from Romantic Dating Proposal Website 💕`
+    );
+    
+    const mailtoLink = `mailto:mahin08muntasir09@gmail.com?subject=${subject}&body=${body}`;
+    
+    emailStatus.classList.add('email-success');
+    emailStatus.innerHTML = `
+        <div class="text-center">
+            <p class="mb-3">✅ Data saved successfully!</p>
+            <p class="mb-3">Click below to send via email:</p>
+            <a href="${mailtoLink}" 
+               class="inline-block px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-full font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300"
+               target="_blank">
+                📧 Open Email Client
+            </a>
+        </div>
+    `;
 }
 
 // ==========================================
